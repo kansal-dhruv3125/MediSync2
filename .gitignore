@@ -6,6 +6,14 @@ node_modules/
 .env.*
 !.env.example
 
+# Private keys, certificates, and credential exports
+*.pem
+*.key
+*.p12
+*.pfx
+*-credentials*.json
+secrets*.json
+
 # Logs
 *.log
 npm-debug.log*
@@ -17,3 +25,5 @@ Thumbs.db
 # Local test artifacts
 /tmp-mongodata/
 *.pid
+
+/backend/.env

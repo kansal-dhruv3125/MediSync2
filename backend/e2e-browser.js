@@ -6,7 +6,7 @@
  * not a project dependency). Run: node e2e-browser.js
  */
 process.env.MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/medisync2_e2e";
-process.env.JWT_SECRET = process.env.JWT_SECRET || "e2e-test-secret";
+process.env.JWT_SECRET = process.env.JWT_SECRET || require("crypto").randomBytes(32).toString("hex");
 process.env.PORT = process.env.PORT || "5777";
 
 const http = require("http");

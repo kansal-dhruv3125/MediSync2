@@ -4,14 +4,16 @@
  * API base URL resolution order:
  *   1. window.MEDISYNC_API_URL   (inline override, set before this script loads)
  *   2. localStorage "medisync_api_url" (override you can set from the browser console)
- *   3. Default: http://localhost:5000 (local backend during development)
+ *   3. Local frontend: http://localhost:5000
+ *   4. Deployed frontend: https://medisync2-api.onrender.com
  *
  * No secrets live here — the JWT is only obtained from the API at login/signup
  * time and stored per-session in the browser.
  */
 (function () {
   const OVERRIDE_STORAGE_KEY = "medisync_api_url";
-  const DEFAULT_API_BASE_URL = "http://localhost:5000";
+  const LOCAL_API_BASE_URL = "http://localhost:5000";
+  const PRODUCTION_API_BASE_URL = "https://medisync2-api.onrender.com";
 
   function normalizeBaseUrl(url) {
     return String(url || "").replace(/\/+$/, "");
@@ -29,7 +31,13 @@
     } catch (storageError) {
       // localStorage unavailable (e.g. privacy mode) — fall through to default
     }
-    return DEFAULT_API_BASE_URL;
+    const hostname = window.location.hostname;
+    const isLocal =
+      !hostname ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]";
+    return isLocal ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL;
   }
 
   const API_BASE_URL = resolveApiBaseUrl();
@@ -101,7 +109,7 @@
 
   window.MedisyncAPI = {
     API_BASE_URL: API_BASE_URL,
-    DEFAULT_API_BASE_URL: DEFAULT_API_BASE_URL,
+    DEFAULT_API_BASE_URL: LOCAL_API_BASE_URL,
     OVERRIDE_STORAGE_KEY: OVERRIDE_STORAGE_KEY,
     apiRequest: apiRequest,
     ApiError: ApiError,

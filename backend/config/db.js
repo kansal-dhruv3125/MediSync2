@@ -14,11 +14,40 @@ async function connectDB() {
     );
   }
 
+  let parsedUri;
+  try {
+    parsedUri = new URL(uri);
+  } catch (error) {
+    throw new Error(
+      "MONGODB_URI is malformed. Use a valid mongodb:// or mongodb+srv:// URI."
+    );
+  }
+
+  if (
+    !["mongodb:", "mongodb+srv:"].includes(parsedUri.protocol) ||
+    !parsedUri.hostname
+  ) {
+    throw new Error(
+      "MONGODB_URI is malformed. Use a valid mongodb:// or mongodb+srv:// URI."
+    );
+  }
+
   mongoose.set("strictQuery", true);
 
-  await mongoose.connect(uri, {
+  const options = {
     serverSelectionTimeoutMS: 10000,
-  });
+  };
+  if (!parsedUri.pathname || parsedUri.pathname === "/") {
+    options.dbName = "medisync";
+  }
+
+  try {
+    await mongoose.connect(uri, options);
+  } catch (error) {
+    throw new Error(
+      `MongoDB connection failed (${error.name}). Verify the Atlas URI, credentials, and network access.`
+    );
+  }
 
   return mongoose.connection;
 }

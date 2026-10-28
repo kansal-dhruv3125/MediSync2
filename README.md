@@ -183,7 +183,7 @@ Render's health-check path should be set to `/api/health`.
 
 ## 🚢 Render Deployment (Backend)
 
-The repository includes a Render Blueprint in `render.yaml`. In Render, choose **New → Blueprint**, connect this repository, and review the `medisync2-api` web service settings before applying. Render will prompt for `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_URL`; enter these as dashboard values and never commit them. Set `CLIENT_URL` to the exact deployed frontend origin.
+The repository includes a Render Blueprint in `render.yaml`. In Render, choose **New → Blueprint**, connect this repository, and review the `medisync2-api` web service settings before applying. Render will prompt for `MONGODB_URI` and `JWT_SECRET`; enter these as dashboard values and never commit them. The Blueprint sets `CLIENT_URL` to `https://medisync2.onrender.com`, the deployed frontend origin shown in the deployment setup.
 
 ### Step 1 — Push the repository to GitHub
 
@@ -210,9 +210,9 @@ Frontend and backend live in the same repo; push normally (`git add` … `git co
 
 | Variable | Value | Notes |
 |---|---|---|
-| `MONGODB_URI` | `mongodb+srv://<user>:<password>@<your-cluster-host>.mongodb.net/medisync` | Your real Atlas SRV string, database path **`/medisync`**. URL-encode special characters in the password first (`@`→`%40`, `:`→`%3A`); safest is a password with none. |
+| `MONGODB_URI` | `mongodb+srv://<user>:<password>@<your-cluster-host>.mongodb.net/medisync` | Your real Atlas SRV string, database path **`/medisync`**. URL-encode reserved characters in username/password (such as `@`, `:`, `/`, `?`, `#`, `[`, `]`, `%`) before adding it. |
 | `JWT_SECRET` | a long random string | Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` — use a **different** secret from your local one if you want to invalidate all previously issued local tokens (recommended). |
-| `CLIENT_URL` | your frontend's deployed URL | e.g. `https://medisync2-frontend.onrender.com`. Comma-separated for multiple origins. In production the API rejects any browser origin not listed here. |
+| `CLIENT_URL` | `https://medisync2.onrender.com` | Exact deployed frontend origin shown in Render. Comma-separated for multiple origins. In production the API rejects any browser origin not listed here. |
 | `NODE_ENV` | `production` | Needed so the CORS allow-list is enforced (dev defaults let arbitrary origins through). |
 | `PORT` | *(leave unset)* | Render injects it automatically; `server.js` already binds `process.env.PORT`. |
 
@@ -257,9 +257,9 @@ Frontend and backend live in the same repo; push normally (`git add` … `git co
    ```
 
 2. `localStorage.setItem("medisync_api_url", "https://medisync2-api.onrender.com")` — quick override you can run once in the browser console (used by the e2e test).
-3. Default: `http://localhost:5000` (local development).
+3. Default based on page hostname: `http://localhost:5000` on localhost, or `https://medisync2-api.onrender.com` on deployed sites.
 
-After deployment, choose option 1 (edit one line) or bake it into your hosting config. The deployed URL is **not** set anywhere yet — supply it and drop it into that one line. No secrets are ever placed in frontend code.
+No frontend API URL configuration is needed for the standard Render deployment. If the backend service name changes, update the production default or use option 1. No secrets are ever placed in frontend code.
 
 ## 🔒 Authentication & Security Notes
 

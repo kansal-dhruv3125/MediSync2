@@ -15,4 +15,4 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: CLIENT_URL
-        sync: false
+        value: https://medisync2.onrender.com
