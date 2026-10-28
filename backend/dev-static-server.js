@@ -1,6 +1,6 @@
 /**
  * Minimal static file server for local development of the MediSync2 frontend.
- * Serves the repository root so pages like http://localhost:8080/index.html work.
+ * Serves the frontend folder so pages like http://localhost:8080/index.html work.
  * Usage: node dev-static-server.js [port]
  */
 const http = require("http");
@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PORT = Number(process.argv[2] || process.env.PORT || 8080);
-const ROOT = path.join(__dirname, "..");
+const ROOT = path.join(__dirname, "..", "frontend");
 
 const MIME = {
   ".html": "text/html",

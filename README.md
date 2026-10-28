@@ -51,10 +51,11 @@ MediSync2 is a full-stack medication management application. Users can organize 
 
 ```text
 MediSync2/
-├── index.html / login.html / signup.html   ← frontend views (existing UI)
-├── style.css / rules.json                  ← existing styles + interaction rules
-├── auth.js  login.js  signup.js  script.js ← views' behavior, now API-backed
-├── js/api.js                               ← centralized API base URL + fetch helper
+├── frontend/                               ← existing UI and API-backed frontend
+│   ├── index.html / login.html / signup.html
+│   ├── style.css / rules.json
+│   ├── auth.js / login.js / signup.js / script.js
+│   └── js/api.js                           ← centralized API base URL + fetch helper
 ├── postman/MediSync2.postman_collection.json
 ├── backend/                                ← MVC backend (same Git repository)
 │   ├── server.js            Express app: middleware, CORS, health, route mounting
@@ -70,7 +71,7 @@ MediSync2/
 │   └── package.json
 ```
 
-Flow: **Views (HTML/JS) → js/api.js fetch → Express routes → controllers → Mongoose models → Atlas**. Controllers never talk to `res` from the models; errors bubble to the centralized error middleware.
+Flow: **Frontend views (HTML/JS) → frontend/js/api.js fetch → Express routes → controllers → Mongoose models → Atlas**. Controllers never talk to `res` from the models; errors bubble to the centralized error middleware.
 
 ## 🚀 Local Setup
 
@@ -182,6 +183,8 @@ Render's health-check path should be set to `/api/health`.
 
 ## 🚢 Render Deployment (Backend)
 
+The repository includes a Render Blueprint in `render.yaml`. In Render, choose **New → Blueprint**, connect this repository, and review the `medisync2-api` web service settings before applying. Render will prompt for `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_URL`; enter these as dashboard values and never commit them. Set `CLIENT_URL` to the exact deployed frontend origin.
+
 ### Step 1 — Push the repository to GitHub
 
 Frontend and backend live in the same repo; push normally (`git add` … `git commit` … `git push`). The `.gitignore` files already exclude `backend/.env`, `node_modules/` and local test artifacts, so nothing secret is committed. **Before pushing, scan the diff once** to confirm no credential slipped into a tracked file.
@@ -240,11 +243,11 @@ Frontend and backend live in the same repo; push normally (`git add` … `git co
 - In production, on a fresh deploy, requests with a browser `Origin` header not present in `CLIENT_URL` will be rejected by CORS — check that first before suspecting the JWT layer.
 - Free instances go cold; keep the launch waiting time in mind when you see a 502/timeout right after opening the service URL.
 
-**Frontend hosting:** if you already host the static frontend (e.g. GitHub Pages), just point it at the deployed API (next section). Otherwise deploy the repo root as a Render **Static Site** (or Netlify) — any static host works.
+**Frontend hosting:** if you already host the static frontend (e.g. GitHub Pages), just point it at the deployed API (next section). Otherwise deploy `frontend/` as a Render **Static Site** (set **Root Directory** to `frontend`) or configure your static host to publish that folder.
 
 ## 🔗 Frontend Integration
 
-`js/api.js` resolves the API base URL in this order:
+`frontend/js/api.js` resolves the API base URL in this order:
 
 1. `window.MEDISYNC_API_URL` — set an inline override before `js/api.js` loads:
 

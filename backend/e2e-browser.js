@@ -15,7 +15,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const puppeteer = require("puppeteer-core");
 
-const FRONTEND_DIR = path.join(__dirname, "..");
+const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 const FRONTEND_PORT = 8090;
 const API_PORT = Number(process.env.PORT);
 
