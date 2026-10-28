@@ -1,0 +1,33 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "smoke-test": "node smoke-test.js",
+    "enter-password": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\enter-atlas-password.ps1",
+    "enter-password:node": "node scripts\\enter-atlas-password.js"
+  },
+  "keywords": [
+    "medisync2",
+    "medications",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "MediSync2 backend API (Express + MongoDB Atlas + JWT)",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.4"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0",
+    "nodemon": "^3.1.14"
+  }
+}

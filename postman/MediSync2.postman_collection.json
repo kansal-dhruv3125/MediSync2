@@ -1,0 +1,539 @@
+{
+  "info": {
+    "name": "MediSync2 API",
+    "description": "Postman collection for the MediSync2 backend (Express + MongoDB Atlas + JWT).\n\nGetting started:\n1. Update the `baseUrl` collection variable: local default http://localhost:5000 — set it to your deployed Render URL for production testing.\n2. Run \"Signup\" and \"Login\". Login automatically stores the returned JWT into the `accessToken` collection variable (also done by Signup).\n3. Run \"Create Medication\" to store the created record's id into the `medId` variable used by the remaining CRUD requests.\n4. Run the MEDISYNC2 MEDICATIONS FAILURES folder to verify authorization and validation behavior.\n\nNo real credentials or tokens are stored in this file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "description": "API base URL. Local: http://localhost:5000. Production: your Render service URL, e.g. https://medisync2-api.onrender.com"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "JWT captured automatically from Signup/Login responses. Do not commit real tokens."
+    },
+    {
+      "key": "medId",
+      "value": "",
+      "description": "Medication id captured automatically from the Create Medication response."
+    },
+    {
+      "key": "testUsername",
+      "value": "postman_user",
+      "description": "Sample username used by this collection's example requests"
+    },
+    {
+      "key": "testEmail",
+      "value": "postman_user@example.com",
+      "description": "Sample email used by this collection's example requests"
+    },
+    {
+      "key": "testPassword",
+      "value": "change_me_123",
+      "description": "Sample password used by this collection's example requests"
+    }
+  ],
+  "item": [
+    {
+      "name": "MISCELLANEOUS",
+      "item": [
+        {
+          "name": "API Info (root)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"Contains app name\", () => pm.expect(pm.response.json().data.name).to.eql(\"MediSync2 API\"));"
+                ]
+              }
+            }
+          ],
+          "description": "Basic app information. Expected: 200 OK with app name and endpoint list."
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"Server is ok\", () => pm.expect(pm.response.json().data.status).to.eql(\"ok\"));",
+                  "// databaseConnected reflects MongoDB connectivity; useful in production"
+                ]
+              }
+            }
+          ],
+          "description": "Server health plus MongoDB connectivity. Expected: 200 OK with data.status = \"ok\"; check data.databaseConnected and data.database when debugging deployment issues."
+        }
+      ]
+    },
+    {
+      "name": "MISCELLANEOUS AUTH",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/signup"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (or 409 if this sample user already exists)\", () => pm.expect([201, 409]).to.include(pm.response.code));",
+                  "if (pm.response.code === 201) {",
+                  "  pm.test(\"Returns a JWT\", () => pm.expect(pm.response.json().data.token).to.be.a(\"string\"));",
+                  "  pm.collectionVariables.set(\"accessToken\", pm.response.json().data.token);",
+                  "  pm.collectionVariables.set(\"userId\", pm.response.json().data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Creates an account and returns {user, token}. Expected: 201 Created on success; 400 for invalid input; 409 if the username or email is already registered. The response never contains the password hash.\n\nSample body:\n{\n  \"username\": \"postman_user\",\n  \"email\": \"postman_user@example.com\",\n  \"password\": \"change_me_123\"\n}"
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{testUsername}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"Returns a JWT\", () => pm.expect(pm.response.json().data.token).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"accessToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "description": "Log in with username OR email as `identifier`. Stores the JWT automatically. Expected: 200 OK; 401 for wrong credentials; 400 for missing fields.\n\nSample body:\n{\n  \"identifier\": \"postman_user\",\n  \"password\": \"change_me_123\"\n}"
+        },
+        {
+          "name": "Current user (me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"Returns the logged-in user\", () => pm.expect(pm.response.json().data.user.username).to.be.a(\"string\"));"
+                ]
+              }
+            }
+          ],
+          "description": "Protected. Returns the authenticated user from the Bearer token. Expected: 200 OK; 401 when the token is missing, invalid or expired. Run Login first so the collection has a token."
+        }
+      ]
+    },
+    {
+      "name": "MISCELLANEOUS MEDICATIONS",
+      "item": [
+        {
+          "name": "List medications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/medications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"Returns an array\", () => pm.expect(pm.response.json().data.medications).to.be.an(\"array\"));",
+                  "if (pm.response.json().data.medications.length > 0 && !pm.collectionVariables.get(\"medId\")) {",
+                  "  pm.collectionVariables.set(\"medId\", pm.response.json().data.medications[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Lists the authenticated user's medications (newest first). Expected: 200 OK; 401 without a valid token."
+        },
+        {
+          "name": "Create medication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aspirin\",\n  \"dose\": \"500mg\",\n  \"frequency\": 2,\n  \"startTime\": \"08:00\",\n  \"customGapHours\": 4\n}"
+            },
+            "url": "{{baseUrl}}/api/medications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", () => pm.expect(pm.response.code).to.eql(201));",
+                  "pm.test(\"Server computed doseTimes\", () => pm.expect(pm.response.json().data.medication.doseTimes).to.have.lengthOf(2));",
+                  "pm.collectionVariables.set(\"medId\", pm.response.json().data.medication.id);"
+                ]
+              }
+            }
+          ],
+          "description": "Creates a medication for the authenticated user. Stores its id for the other CRUD requests. Expected: 201 Created; 400 for invalid input.\n\nSample body:\n{\n  \"name\": \"Aspirin\",\n  \"dose\": \"500mg\",\n  \"frequency\": 2,\n  \"startTime\": \"08:00\",\n  \"customGapHours\": 4\n}\n\nNotes: frequency must be 1-4; startTime is 24h HH:MM; customGapHours 0-12 (optional, defaults to 0); notes (optional). doseTimes is computed by the server — do not send it."
+        },
+        {
+          "name": "Get medication by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/medications/{{medId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ],
+          "description": "Fetches one of the user's own medications. Expected: 200 OK; 404 if the id does not exist or belongs to another user; 400 for an invalid id; 401 without a token."
+        },
+        {
+          "name": "Update medication",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aspirin\",\n  \"dose\": \"100mg\",\n  \"frequency\": 3,\n  \"startTime\": \"09:30\",\n  \"customGapHours\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/medications/{{medId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test(\"doseTimes recomputed\", () => pm.expect(pm.response.json().data.medication.doseTimes).to.have.lengthOf(3));"
+                ]
+              }
+            }
+          ],
+          "description": "Updates the medication. doseTimes is always recomputed from frequency + startTime. Expected: 200 OK; 404 unknown/foreign id; 400 invalid input or id."
+        },
+        {
+          "name": "Delete medication",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/medications/{{medId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ],
+          "description": "Deletes one of the user's medications. Expected: 200 OK with a confirmation message; 404 unknown/foreign id."
+        }
+      ]
+    },
+    {
+      "name": "MISCELLANEOUS FAILURES",
+      "item": [
+        {
+          "name": "List medications - unauthorized (no token)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/medications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", () => pm.expect(pm.response.code).to.eql(401));"
+                ]
+              }
+            }
+          ],
+          "description": "Verifies the medication API rejects requests without a Bearer token. Expected: 401 Unauthorized."
+        },
+        {
+          "name": "Current user - invalid token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer not.a.real.jwt"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", () => pm.expect(pm.response.code).to.eql(401));"
+                ]
+              }
+            }
+          ],
+          "description": "Verifies forged/expired JWTs are rejected. Expected: 401 Unauthorized."
+        },
+        {
+          "name": "Signup - invalid input",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"x\",\n  \"email\": \"not-an-email\",\n  \"password\": \"123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/signup"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", () => pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test(\"Lists validation errors\", () => pm.expect(pm.response.json().errors).to.be.an(\"array\").that.is.not.empty);"
+                ]
+              }
+            }
+          ],
+          "description": "Invalid username, email and password. Expected: 400 Bad Request with an `errors` array describing each problem."
+        },
+        {
+          "name": "Signup - duplicate email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"different_username\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/signup"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.expect(pm.response.code).to.eql(409));"
+                ]
+              }
+            }
+          ],
+          "description": "Rejets duplicate emails (and duplicate usernames). Run Signup first. Expected: 409 Conflict with a message stating the email is already registered."
+        },
+        {
+          "name": "Login - wrong password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{testUsername}}\",\n  \"password\": \"definitely_wrong\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", () => pm.expect(pm.response.code).to.eql(401));",
+                  "pm.test(\"Generic message (no sensitive details)\", () => pm.expect(pm.response.json().message).to.eql(\"Incorrect username/email or password.\"));"
+                ]
+              }
+            }
+          ],
+          "description": "Wrong credentials return the same generic error as unknown users. Expected: 401 Unauthorized."
+        },
+        {
+          "name": "Create medication - invalid fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad med\",\n  \"dose\": \"1mg\",\n  \"frequency\": 9,\n  \"startTime\": \"25:99\"\n}"
+            },
+            "url": "{{baseUrl}}/api/medications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", () => pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ],
+          "description": "frequency: 9 (valid range 1-4) and startTime: 25:99 (valid format HH:MM 00:00-23:59). Expected: 400 Bad Request with an `errors` array."
+        },
+        {
+          "name": "Get medication - invalid ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/medications/not-a-valid-id"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", () => pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ],
+          "description": "Malformed MongoDB ObjectId. Expected: 400 Bad Request."
+        },
+        {
+          "name": "Get medication - unknown ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/medications/000000000000000000000000"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404\", () => pm.expect(pm.response.code).to.eql(404));"
+                ]
+              }
+            }
+          ],
+          "description": "Well-formed but nonexistent id (or one that belongs to another user). Expected: 404 Not Found."
+        }
+      ]
+    }
+  ]
+}

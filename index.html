@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Medication Dosage & Interaction Scheduler</title>
   <link rel="stylesheet" href="style.css">
+  <script src="js/api.js"></script>
   <script src="auth.js"></script>
   <script>requireLogin();</script>
 </head>
@@ -129,6 +130,7 @@
 
       <div class="card">
         <h2>Your Medications</h2>
+        <p id="meds-status" class="muted" style="display:none;"></p>
         <ul id="medication-list" class="medication-list">
         </ul>
         <p id="no-medications-msg" class="muted">No medications added yet.</p>

@@ -1,25 +1,42 @@
 const form = document.getElementById("login-form");
-const usernameInput = document.getElementById("login-username");
+const identifierInput = document.getElementById("login-username");
 const passwordInput = document.getElementById("login-password");
 const errorEl = document.getElementById("login-error");
+const submitBtn = form.querySelector("button[type=submit]");
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const username = usernameInput.value.trim();
+  const identifier = identifierInput.value.trim();
   const password = passwordInput.value;
 
-  const users = getUsers();
-  const matchedUser = users.find(
-    (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-  );
-
-  if (!matchedUser) {
-    errorEl.textContent = "Incorrect username or password.";
+  if (!identifier) {
+    errorEl.textContent = "Please enter your username or email.";
+    return;
+  }
+  if (!password) {
+    errorEl.textContent = "Please enter your password.";
     return;
   }
 
   errorEl.textContent = "";
-  setCurrentUser(matchedUser.username);
-  window.location.href = "index.html";
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Logging in...";
+
+  try {
+    const result = await MedisyncAPI.apiRequest("/api/auth/login", {
+      method: "POST",
+      body: { identifier: identifier, password: password },
+    });
+
+    setAuthSession(result.data.token, result.data.user);
+    window.location.href = "index.html";
+  } catch (error) {
+    errorEl.textContent =
+      error.message === "Incorrect username/email or password."
+        ? "Incorrect username or password."
+        : error.message;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Log In";
+  }
 });

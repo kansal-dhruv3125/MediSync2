@@ -1,13 +1,16 @@
 const form = document.getElementById("signup-form");
 const usernameInput = document.getElementById("signup-username");
+const emailInput = document.getElementById("signup-email");
 const passwordInput = document.getElementById("signup-password");
 const confirmInput = document.getElementById("signup-confirm");
 const errorEl = document.getElementById("signup-error");
+const submitBtn = form.querySelector("button[type=submit]");
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const username = usernameInput.value.trim();
+  const email = emailInput.value.trim();
   const password = passwordInput.value;
   const confirmPassword = confirmInput.value;
 
@@ -15,8 +18,16 @@ form.addEventListener("submit", (event) => {
     errorEl.textContent = "Please choose a username.";
     return;
   }
+  if (!email) {
+    errorEl.textContent = "Please enter your email address.";
+    return;
+  }
   if (!password) {
     errorEl.textContent = "Please choose a password.";
+    return;
+  }
+  if (password.length < 6) {
+    errorEl.textContent = "Password must be at least 6 characters.";
     return;
   }
   if (password !== confirmPassword) {
@@ -24,19 +35,21 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  const users = getUsers();
-  const usernameTaken = users.some(
-    (u) => u.username.toLowerCase() === username.toLowerCase()
-  );
+  errorEl.textContent = "";
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Signing up...";
 
-  if (usernameTaken) {
-    errorEl.textContent = "That username is already taken.";
-    return;
+  try {
+    const result = await MedisyncAPI.apiRequest("/api/auth/signup", {
+      method: "POST",
+      body: { username: username, email: email, password: password },
+    });
+
+    setAuthSession(result.data.token, result.data.user);
+    window.location.href = "index.html";
+  } catch (error) {
+    errorEl.textContent = error.message;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Sign Up";
   }
-
-  users.push({ username, password });
-  saveUsers(users);
-
-  setCurrentUser(username);
-  window.location.href = "index.html";
 });

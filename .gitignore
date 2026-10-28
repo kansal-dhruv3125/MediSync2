@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment files (secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local test artifacts
+/tmp-mongodata/
+*.pid

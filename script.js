@@ -29,19 +29,33 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 let medications = [];
 let editingMedicationId = null;
 
-const STORAGE_KEY = "medications_" + getCurrentUser();
+const medsStatusEl = document.getElementById("meds-status");
 
-function loadMedicationsFromStorage() {
-  let saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    medications = JSON.parse(saved);
-  } else {
-    medications = [];
+/**
+ * Medications now live in MongoDB, loaded/modified through the backend API.
+ * The derived doseTimes are recomputed server-side so the stored record stays
+ * authoritative.
+ */
+async function loadMedicationsFromApi() {
+  medsStatusEl.style.display = "block";
+  medsStatusEl.textContent = "Loading your medications...";
+
+  try {
+    const result = await MedisyncAPI.apiRequest("/api/medications", {
+      token: getSessionToken(),
+    });
+    medications = result.data.medications;
+    renderAll();
+    medsStatusEl.style.display = "none";
+    medsStatusEl.textContent = "";
+  } catch (error) {
+    // Leave whatever was rendered; surface a clear error message.
+    if (medications.length === 0) {
+      medications = [];
+      renderAll();
+    }
+    medsStatusEl.textContent = error.message;
   }
-}
-
-function saveMedicationsToStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(medications));
 }
 
 function twoDigits(number) {
@@ -372,16 +386,21 @@ function renderMedicationList() {
 
     let gapText = "";
     if (med.customGapHours > 0) {
-      gapText = " &middot; custom gap: " + med.customGapHours + "h";
+      gapText = " \u00b7 custom gap: " + med.customGapHours + "h";
     }
 
+    // Built with textContent (not innerHTML) so medication data can never
+    // inject markup into the page (XSS).
     let info = document.createElement("div");
     info.className = "med-info";
-    info.innerHTML =
-      "<strong>" + med.name + "</strong> - " + med.dose +
-      "<div class='med-details'>" +
-      med.frequency + "x/day &middot; times: " + med.doseTimes.join(", ") + gapText +
-      "</div>";
+    let strong = document.createElement("strong");
+    strong.textContent = med.name + " - " + med.dose;
+    let details = document.createElement("div");
+    details.className = "med-details";
+    details.textContent =
+      med.frequency + "x/day \u00b7 times: " + med.doseTimes.join(", ") + gapText;
+    info.appendChild(strong);
+    info.appendChild(details);
 
     let editBtn = document.createElement("button");
     editBtn.textContent = "Edit";
@@ -510,7 +529,18 @@ function renderAll() {
   renderSchedule(conflicts);
 }
 
-function deleteMedication(id) {
+async function deleteMedication(id) {
+  try {
+    await MedisyncAPI.apiRequest("/api/medications/" + id, {
+      method: "DELETE",
+      token: getSessionToken(),
+    });
+  } catch (error) {
+    medsStatusEl.style.display = "block";
+    medsStatusEl.textContent = "Could not delete the medication: " + error.message;
+    return;
+  }
+
   let remaining = [];
   for (let i = 0; i < medications.length; i++) {
     if (medications[i].id !== id) {
@@ -519,7 +549,6 @@ function deleteMedication(id) {
   }
   medications = remaining;
 
-  saveMedicationsToStorage();
   renderAll();
 
   if (editingMedicationId === id) {
@@ -572,7 +601,7 @@ function cancelEdit() {
 
 cancelEditBtn.addEventListener("click", cancelEdit);
 
-form.addEventListener("submit", function (event) {
+form.addEventListener("submit", async function (event) {
   event.preventDefault();
 
   let name = nameInput.value.trim();
@@ -594,32 +623,46 @@ form.addEventListener("submit", function (event) {
     return;
   }
 
-  if (editingMedicationId) {
-    let med = null;
-    for (let i = 0; i < medications.length; i++) {
-      if (medications[i].id === editingMedicationId) {
-        med = medications[i];
-      }
+  const payload = {
+    name: name,
+    dose: dose,
+    frequency: frequency,
+    startTime: startTime,
+    customGapHours: customGapHours
+  };
+
+  saveBtn.disabled = true;
+
+  try {
+    if (editingMedicationId) {
+      const result = await MedisyncAPI.apiRequest(
+        "/api/medications/" + editingMedicationId,
+        {
+          method: "PUT",
+          token: getSessionToken(),
+          body: payload
+        }
+      );
+      medications = medications.map(function (existing) {
+        return existing.id === result.data.medication.id
+          ? result.data.medication
+          : existing;
+      });
+    } else {
+      const result = await MedisyncAPI.apiRequest("/api/medications", {
+        method: "POST",
+        token: getSessionToken(),
+        body: payload
+      });
+      medications.push(result.data.medication);
     }
-    med.name = name;
-    med.dose = dose;
-    med.frequency = frequency;
-    med.startTime = startTime;
-    med.customGapHours = customGapHours;
-    med.doseTimes = computeDoseTimes(frequency, startTime);
-  } else {
-    medications.push({
-      id: Date.now(),
-      name: name,
-      dose: dose,
-      frequency: frequency,
-      startTime: startTime,
-      customGapHours: customGapHours,
-      doseTimes: computeDoseTimes(frequency, startTime)
-    });
+  } catch (error) {
+    formError.textContent = error.message;
+    saveBtn.disabled = false;
+    return;
   }
 
-  saveMedicationsToStorage();
+  saveBtn.disabled = false;
   renderAll();
   cancelEdit();
 });
@@ -654,11 +697,22 @@ for (let i = 0; i < tabButtons.length; i++) {
 generateBtn.addEventListener("click", renderGeneratedSchedule);
 
 function init() {
-  currentUserLabel.textContent = "Logged in as " + getCurrentUser();
+  const currentUser = getCurrentUser();
+  currentUserLabel.textContent = currentUser
+    ? "Logged in as " + currentUser.username
+    : "Logged in";
   logoutBtn.addEventListener("click", logout);
 
-  loadMedicationsFromStorage();
   loadTakenFromStorage();
+
+  // Verify the session against the API, then load medications from MongoDB.
+  verifySession()
+    .then(function (sessionValid) {
+      if (!sessionValid) {
+        return null; // verifySession already redirects on an expired session
+      }
+      return loadMedicationsFromApi();
+    });
 
   fetch("rules.json")
     .then(function (response) {

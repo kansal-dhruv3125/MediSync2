@@ -1,0 +1,14 @@
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Local test artifacts
+/tmp-mongodata/
+atlas-integration-test.js
